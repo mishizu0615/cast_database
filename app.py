@@ -80,7 +80,7 @@ def find_staff_by_name(name):
     ws   = get_sheet()
     rows = ws.get_all_records()
     for i, r in enumerate(rows):
-        if name in str(r.get('name', '')):
+        if str(r.get('name', '')).strip() == name.strip():
             return {'row_index': i + 2, 'data': r}
     return None
 
