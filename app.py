@@ -27,7 +27,7 @@ CLAUDE_MODEL = 'claude-sonnet-4-20250514'
 
 SCHEMA = [
     'staff_id', 'service', 'status', 'created_at', 'updated_at',
-    'name', 'age', 'hometown', 'height', 'cup', 'style', 'type', 'photo_url',
+    'name', 'age', 'hometown', 'is_local', 'is_newcomer', 'height', 'cup', 'style', 'type', 'photo_url',
     'personality', 'hobbies', 'skills', 'profile_text', 'raw_memo',
     'transportation_fee', 'dormitory_fee', 'miscellaneous_fee',
     'is_home', 'is_biz_hotel',
@@ -245,7 +245,11 @@ def detect_intent(text, all_staff):
 - 「寮費◯円」「寮費◯」→ dormitory_fee に数値で入れる
 - 「雑費◯円」「雑費◯」→ miscellaneous_fee に数値で入れる
 - 金額が不明な場合はそのままテキストで入れる
-- 「カップA」「AカップB」「Bカップ」など → cup に「A」「B」「C」のようにアルファベットだけ入れる"
+- 「カップA」「AカップB」「Bカップ」など → cup に「A」「B」「C」のようにアルファベットだけ入れる
+- 「地元」「地元の子」など → is_local に「地元」と入れる
+- 「未経験」「未経験の子」など → is_newcomer に「未経験」と入れる
+- 「地元」「地元スタッフ」など → is_local に「地元」を入れる
+- 「未経験」「初めて」など → is_newcomer に「未経験」を入れる"
 
 返すJSONの形式:
 {{
@@ -309,6 +313,8 @@ def handle_staff_detail_(reply_token, name):
         '',
         f'年齢：{val(d.get("age"))}歳' if d.get("age") else f'年齢：未登録',
         f'出身地：{val(d.get("hometown"))}',
+        f'地元：{d.get("is_local") or ""}',
+        f'未経験：{d.get("is_newcomer") or ""}',
         f'身長：{str(d.get("height")) + "cm" if d.get("height") else "未登録"}',
         f'タイプ：{val(d.get("type"))}',
         f'スタイル：{val(d.get("style"))}',
