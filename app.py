@@ -27,11 +27,10 @@ CLAUDE_MODEL = 'claude-sonnet-4-20250514'
 
 SCHEMA = [
     'staff_id', 'service', 'status', 'created_at', 'updated_at',
-    'name', 'age', 'hometown', 'height', 'style', 'type', 'photo_url',
+    'name', 'age', 'hometown', 'height', 'cup', 'style', 'type', 'photo_url',
     'personality', 'hobbies', 'skills', 'profile_text', 'raw_memo',
     'transportation_fee', 'dormitory_fee', 'miscellaneous_fee',
     'is_home', 'is_biz_hotel',
-    'cup',  # スタッフ区分（A〜Kなど）
 ]
 BOOLEAN_COLS = {'is_home', 'is_biz_hotel'}
 
