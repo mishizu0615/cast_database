@@ -294,8 +294,7 @@ def push_line_group(group_id, message):
 def handle_staff_detail_(reply_token, name):
     existing = find_staff_by_name(name)
     if not existing:
-        reply_line(reply_token, f'「{name}」は見つかりませんでした。
-名前が完全一致している必要があります。')
+        reply_line(reply_token, f'「{name}」は見つかりませんでした。\n名前が完全一致している必要があります。')
         return
     d = existing['data']
 
@@ -327,8 +326,7 @@ def handle_staff_detail_(reply_token, name):
         f'登録日：{str(d.get("created_at", ""))[:10]}',
         f'更新日：{str(d.get("updated_at", ""))[:10]}',
     ]
-    reply_line(reply_token, '
-'.join(lines))
+    reply_line(reply_token, '\n'.join(lines))
 
 def get_help_text():
     return '\n'.join([
