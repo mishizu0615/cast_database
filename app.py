@@ -77,11 +77,18 @@ def get_all_staff():
     return [r for r in rows if r.get('status') != '退職']
 
 def find_staff_by_name(name):
+    if not name or not name.strip():
+        return None
     ws   = get_sheet()
     rows = ws.get_all_records()
     for i, r in enumerate(rows):
-        if str(r.get('name', '')).strip() == name.strip():
+        row_name = str(r.get('name', '')).strip()
+        if not row_name:
+            continue  # 空行はスキップ
+        if row_name == name.strip():
+            logger.info(f'スタッフ発見: {row_name} row={i + 2}')
             return {'row_index': i + 2, 'data': r}
+    logger.info(f'スタッフ未発見: {name} → 新規登録へ')
     return None
 
 def generate_staff_id():
@@ -284,6 +291,45 @@ def push_line_group(group_id, message):
         json={'to': group_id, 'messages': [{'type': 'text', 'text': truncated}]},
     )
 
+def handle_staff_detail_(reply_token, name):
+    existing = find_staff_by_name(name)
+    if not existing:
+        reply_line(reply_token, f'「{name}」は見つかりませんでした。
+名前が完全一致している必要があります。')
+        return
+    d = existing['data']
+
+    def val(v):
+        return str(v) if v not in ('', None, False) else '未登録'
+
+    lines = [
+        f'【{d.get("name", "")}】{d.get("staff_id", "")}',
+        f'ステータス：{val(d.get("status"))}',
+        f'サービス：{val(d.get("service"))}',
+        '',
+        f'年齢：{val(d.get("age"))}歳' if d.get("age") else f'年齢：未登録',
+        f'出身地：{val(d.get("hometown"))}',
+        f'身長：{str(d.get("height")) + "cm" if d.get("height") else "未登録"}',
+        f'タイプ：{val(d.get("type"))}',
+        f'スタイル：{val(d.get("style"))}',
+        '',
+        f'性格：{val(d.get("personality"))}',
+        f'趣味：{val(d.get("hobbies"))}',
+        f'特技：{val(d.get("skills"))}',
+        '',
+        f'交通費：{val(d.get("transportation_fee"))}',
+        f'寮費：{val(d.get("dormitory_fee"))}',
+        f'雑費：{val(d.get("miscellaneous_fee"))}',
+        f'自宅：{"あり" if d.get("is_home") else "なし"}',
+        f'ビジホ：{"あり" if d.get("is_biz_hotel") else "なし"}',
+        '',
+        f'プロフィール文：{"あり" if d.get("profile_text") else "未生成"}',
+        f'登録日：{str(d.get("created_at", ""))[:10]}',
+        f'更新日：{str(d.get("updated_at", ""))[:10]}',
+    ]
+    reply_line(reply_token, '
+'.join(lines))
+
 def get_help_text():
     return '\n'.join([
         '【スタッフDB 使い方】',
@@ -349,6 +395,12 @@ def handle_text(reply_token, group_id, text):
 
     if text.strip() == '使い方':
         reply_line(reply_token, get_help_text())
+        return
+
+    # 「〇〇の情報」でスタッフ詳細を返す
+    if text.strip().endswith('の情報'):
+        name = text.strip()[:-3].strip()
+        handle_staff_detail_(reply_token, name)
         return
 
     # ② Claude で意図判定
