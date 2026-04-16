@@ -31,6 +31,7 @@ SCHEMA = [
     'personality', 'hobbies', 'skills', 'profile_text', 'raw_memo',
     'transportation_fee', 'dormitory_fee', 'miscellaneous_fee',
     'is_home', 'is_biz_hotel',
+    'cup',  # スタッフ区分（A〜Kなど）
 ]
 BOOLEAN_COLS = {'is_home', 'is_biz_hotel'}
 
@@ -244,7 +245,8 @@ def detect_intent(text, all_staff):
 - 「交通費◯円」「交通費◯」→ transportation_fee に数値で入れる
 - 「寮費◯円」「寮費◯」→ dormitory_fee に数値で入れる
 - 「雑費◯円」「雑費◯」→ miscellaneous_fee に数値で入れる
-- 金額が不明な場合はそのままテキストで入れる"
+- 金額が不明な場合はそのままテキストで入れる
+- 「カップA」「AカップB」「Bカップ」など → cup に「A」「B」「C」のようにアルファベットだけ入れる"
 
 返すJSONの形式:
 {{
@@ -322,6 +324,7 @@ def handle_staff_detail_(reply_token, name):
         f'自宅：{"あり" if d.get("is_home") else "なし"}',
         f'ビジホ：{"あり" if d.get("is_biz_hotel") else "なし"}',
         '',
+        f'カップ：{val(d.get("cup"))}',
         f'プロフィール文：{"あり" if d.get("profile_text") else "未生成"}',
         f'登録日：{str(d.get("created_at", ""))[:10]}',
         f'更新日：{str(d.get("updated_at", ""))[:10]}',
