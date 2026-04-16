@@ -228,10 +228,16 @@ def detect_intent(text, all_staff):
 現在登録済みのスタッフ: {staff_list}
 
 判定ルール:
-- スタッフの情報（名前・年齢・趣味など）が含まれている → action: "register"
+- スタッフの情報（名前・年齢・趣味・交通費・寮費・雑費など）が含まれている → action: "register"
 - 特定スタッフについて質問している → action: "query"
 - プロフィール文の生成を求めている → action: "generate_profile"
 - それ以外 → action: "unknown"
+
+費用項目の抽出ルール:
+- 「交通費◯円」「交通費◯」→ transportation_fee に数値で入れる
+- 「寮費◯円」「寮費◯」→ dormitory_fee に数値で入れる
+- 「雑費◯円」「雑費◯」→ miscellaneous_fee に数値で入れる
+- 金額が不明な場合はそのままテキストで入れる"
 
 返すJSONの形式:
 {{
@@ -240,7 +246,8 @@ def detect_intent(text, all_staff):
   "staff_id": "対象staff_id（わかれば）",
   "extracted_fields": {{
     "name": "", "age": null, "hometown": "", "height": null,
-    "style": "", "type": "", "personality": "", "hobbies": "", "skills": "", "service": ""
+    "style": "", "type": "", "personality": "", "hobbies": "", "skills": "", "service": "",
+    "transportation_fee": null, "dormitory_fee": null, "miscellaneous_fee": null
   }},
   "query_question": "質問内容（queryの場合）"
 }}
