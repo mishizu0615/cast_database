@@ -1,4 +1,3 @@
-
 import os
 import json
 import random
@@ -110,7 +109,9 @@ def insert_staff(fields):
         elif col == 'updated_at': row.append(now)
         elif col in BOOLEAN_COLS: row.append(bool(fields.get(col, False)))
         else: row.append(fields.get(col, ''))
+    logger.info(f'Sheets書き込み（新規）: {staff_id} | row={row[:6]}')
     ws.append_row(row)
+    logger.info(f'Sheets書き込み完了: {staff_id}')
     return staff_id
 
 def update_staff(row_index, fields):
@@ -358,20 +359,16 @@ def handle_text(reply_token, group_id, text):
         staff_name = intent.get('staff_name') or fields.get('name', '')
         existing   = find_staff_by_name(staff_name) if staff_name else None
 
-        profile_text = generate_profile_text(fields)
-        if profile_text:
-            fields['profile_text'] = profile_text
-
+        # プロフィール生成はしない。データ蓄積のみ。
         if existing:
             update_staff(existing['row_index'], fields)
-            msg = (f"✅ {staff_name} の情報を更新しました！\n\n"
-                   f"【生成されたプロフィール文】\n{profile_text or '（生成なし）'}")
+            logger.info(f'スタッフ更新: {staff_name} row={existing["row_index"]}')
+            msg = f"✅ {staff_name} の情報を蓄積しました！\nプロフィールを生成する場合は「{staff_name}のプロフィールを作って」と送ってください。"
         else:
             staff_id = insert_staff(fields)
             name     = fields.get('name', '名前未設定')
-            msg = (f"✅ 新規スタッフ「{name}」を登録しました！\n"
-                   f"ID: {staff_id}\n\n"
-                   f"【生成されたプロフィール文】\n{profile_text or '（情報が少なすぎます）'}")
+            logger.info(f'スタッフ新規登録: {name} id={staff_id}')
+            msg = f"✅ 新規スタッフ「{name}」を登録しました！\nID: {staff_id}\nプロフィールを生成する場合は「{name}のプロフィールを作って」と送ってください。"
         reply_line(reply_token, msg)
 
     elif action == 'query':
