@@ -34,6 +34,8 @@ SCHEMA = [
 ]
 BOOLEAN_COLS = {'is_home', 'is_biz_hotel'}
 
+VALID_TAGS = ['地元', '未経験', 'ロリ系', 'お姉さん', 'キレカワ', 'スタイル', 'かわいい', '激推し']
+
 # ========================================
 # Google Sheets 接続
 # ========================================
@@ -61,12 +63,45 @@ def get_samples_sheet():
     client = get_sheets_client()
     ss     = client.open_by_key(SPREADSHEET_ID)
     try:
-        return ss.worksheet('profile_samples')
-    except gspread.WorksheetNotFound:
-        ws = ss.add_worksheet(title='profile_samples', rows=500, cols=3)
-        ws.append_row(['profile_text', 'added_at', 'memo'])
-        ws.freeze(rows=1)
+        ws = ss.worksheet('profile_samples')
+        # tag列のヘッダーがなければ追加
+        headers = ws.row_values(1)
+        if 'tag' not in headers:
+            ws.update_cell(1, 4, 'tag')
+            # tag列にプルダウンを設定
+            apply_tag_dropdown_(ws)
         return ws
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet(title='profile_samples', rows=500, cols=4)
+        ws.append_row(['profile_text', 'added_at', 'memo', 'tag'])
+        ws.freeze(rows=1)
+        apply_tag_dropdown_(ws)
+        return ws
+
+def apply_tag_dropdown_(ws):
+    rule = {
+        'setDataValidation': {
+            'range': {
+                'sheetId': ws.id,
+                'startRowIndex': 1,
+                'startColumnIndex': 3,
+                'endColumnIndex': 4,
+            },
+            'rule': {
+                'condition': {
+                    'type': 'ONE_OF_LIST',
+                    'values': [{'userEnteredValue': t} for t in VALID_TAGS],
+                },
+                'showCustomUi': True,
+                'strict': False,
+            }
+        }
+    }
+    try:
+        ws.spreadsheet.batch_update({'requests': [rule]})
+        logger.info('tag列プルダウン設定完了')
+    except Exception as e:
+        logger.warning(f'プルダウン設定エラー: {e}')
 
 # ========================================
 # スタッフDB操作
@@ -139,38 +174,79 @@ def update_staff(row_index, fields):
 # ========================================
 # プロフィール生成（学習ベース）
 # ========================================
-def collect_samples(exclude_name=''):
-    samples = []
+def collect_samples(exclude_name='', staff_tags=None):
+    staff_tags = staff_tags or []
 
-    # ① staff_db の profile_text
+    tagged   = []  # タグ一致サンプル（優先）
+    untagged = []  # タグなし or 不一致サンプル（補完）
+
+    # ① staff_db の profile_text（タグなし扱い）
     for s in get_all_staff():
         pt = str(s.get('profile_text', '')).strip()
         if pt and len(pt) > 20 and s.get('name') != exclude_name:
-            samples.append(pt)
+            untagged.append(pt)
 
-    # ② profile_samples シート
+    # ② profile_samples シート（tag列を参照）
     try:
         ws   = get_samples_sheet()
         rows = ws.get_all_records()
         for r in rows:
-            pt = str(r.get('profile_text', '')).strip()
-            if pt and len(pt) > 20:
-                samples.append(pt)
+            pt  = str(r.get('profile_text', '')).strip()
+            tag = str(r.get('tag', '')).strip()
+            if not pt or len(pt) <= 20:
+                continue
+            if tag and tag in staff_tags:
+                tagged.append(pt)    # タグ一致 → 優先枠
+            else:
+                untagged.append(pt)  # タグなし or 不一致 → 補完枠
     except Exception as e:
         logger.warning(f'profile_samples読み込みエラー: {e}')
 
-    # 重複除去・シャッフル・最大20件
-    seen, unique = set(), []
-    for s in samples:
-        if s not in seen:
-            seen.add(s)
-            unique.append(s)
-    random.shuffle(unique)
-    return unique[:20]
+    def dedupe_shuffle(lst):
+        seen, result = set(), []
+        for s in lst:
+            if s not in seen:
+                seen.add(s)
+                result.append(s)
+        random.shuffle(result)
+        return result
+
+    tagged   = dedupe_shuffle(tagged)
+    untagged = dedupe_shuffle(untagged)
+
+    # タグ一致を最大10件優先、残り10件を全体から補完
+    combined = tagged[:10] + untagged[:max(0, 20 - len(tagged[:10]))]
+    logger.info(f'サンプル収集: タグ一致={len(tagged)}件 補完={len(untagged)}件 使用={len(combined)}件 タグ={staff_tags}')
+    return combined[:20]
+
+def detect_tags(fields):
+    tags = []
+    if str(fields.get('is_local', '')).strip() == '地元':
+        tags.append('地元')
+    if str(fields.get('is_newcomer', '')).strip() == '未経験':
+        tags.append('未経験')
+    # 地元＋未経験の組み合わせも追加（両方タグのサンプルが優先される）
+    if str(fields.get('is_local', '')).strip() == '地元' and str(fields.get('is_newcomer', '')).strip() == '未経験':
+        tags.append('地元未経験')
+    # type列からタグ判定
+    type_val = str(fields.get('type', '')).strip()
+    if 'ロリ' in type_val or '幼い' in type_val or '童顔' in type_val:
+        tags.append('ロリ系')
+    if 'お姉さん' in type_val or '大人' in type_val:
+        tags.append('お姉さん')
+    if 'キレ' in type_val or '綺麗' in type_val or 'クール' in type_val:
+        tags.append('キレカワ')
+    if 'かわいい' in type_val or '可愛い' in type_val:
+        tags.append('かわいい')
+    # スタイル・カップに値があればスタイルタグ
+    if fields.get('style') or fields.get('cup'):
+        tags.append('スタイル')
+    return tags
 
 def generate_profile_text(fields):
-    name    = fields.get('name', '')
-    samples = collect_samples(exclude_name=name)
+    name      = fields.get('name', '')
+    staff_tags = detect_tags(fields)
+    samples   = collect_samples(exclude_name=name, staff_tags=staff_tags)
 
     if not name:
         return ''
