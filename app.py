@@ -219,25 +219,43 @@ def collect_samples(exclude_name='', staff_tags=None):
     logger.info(f'サンプル収集: タグ一致={len(tagged)}件 補完={len(untagged)}件 使用={len(combined)}件 タグ={staff_tags}')
     return combined[:20]
 
+LOCAL_HOMETOWNS = ['広島', '福山']
+
 def detect_tags(fields):
     tags = []
-    if str(fields.get('is_local', '')).strip() == '地元':
+    # 出身地が広島・福山のとき自動で地元タグ
+    hometown = str(fields.get('hometown', '')).strip()
+    is_local = any(h in hometown for h in LOCAL_HOMETOWNS)
+    if is_local:
         tags.append('地元')
     if str(fields.get('is_newcomer', '')).strip() == '未経験':
         tags.append('未経験')
-    # 地元＋未経験の組み合わせも追加（両方タグのサンプルが優先される）
-    if str(fields.get('is_local', '')).strip() == '地元' and str(fields.get('is_newcomer', '')).strip() == '未経験':
+    # 地元＋未経験の組み合わせも追加
+    if is_local and str(fields.get('is_newcomer', '')).strip() == '未経験':
         tags.append('地元未経験')
-    # type列からタグ判定
+    # 年齢タグ（26歳以下→かわいい寄り、27歳以上→お姉さん寄り）
+    try:
+        age = int(fields.get('age', 0) or 0)
+        if 0 < age <= 26:
+            tags.append('かわいい')
+        elif age >= 27:
+            tags.append('お姉さん')
+    except (ValueError, TypeError):
+        pass
+
+    # type列からタグ判定（手動入力で上書き補完）
     type_val = str(fields.get('type', '')).strip()
     if 'ロリ' in type_val or '幼い' in type_val or '童顔' in type_val:
-        tags.append('ロリ系')
+        if 'ロリ系' not in tags:
+            tags.append('ロリ系')
     if 'お姉さん' in type_val or '大人' in type_val:
-        tags.append('お姉さん')
+        if 'お姉さん' not in tags:
+            tags.append('お姉さん')
     if 'キレ' in type_val or '綺麗' in type_val or 'クール' in type_val:
         tags.append('キレカワ')
     if 'かわいい' in type_val or '可愛い' in type_val:
-        tags.append('かわいい')
+        if 'かわいい' not in tags:
+            tags.append('かわいい')
     # スタイル・カップに値があればスタイルタグ
     if fields.get('style') or fields.get('cup'):
         tags.append('スタイル')
