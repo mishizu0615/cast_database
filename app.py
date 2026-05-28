@@ -273,13 +273,29 @@ def generate_profile_text(fields):
 
     if samples:
         sample_block = '\n'.join(['---\n' + s for s in samples])
+
+        absent_attrs = []
+        if str(fields.get('is_local', '')).strip() != '地元':
+            absent_attrs.append('地元')
+        if str(fields.get('is_newcomer', '')).strip() != '未経験':
+            absent_attrs.append('未経験')
+
+        exclusion = ''
+        if absent_attrs:
+            exclusion = (
+                '\n\n【重要】以下の属性はこのスタッフの情報にありません。'
+                '実例に含まれていても文中に絶対に入れないでください：'
+                + '、'.join(absent_attrs)
+            )
+
         system = (
             'あなたはプロフィール文の生成AIです。\n'
             '以下の【実例集】だけを手がかりに、同じ世界観・トーン・リズム・語彙感覚で'
             '新しいプロフィール文を1つ書いてください。\n'
             'ルールや制約は一切ありません。\n'
             '実例の空気感を最大限に吸収して、自然に書いてください。\n'
-            'プロフィール文の本文だけ出力してください。説明や見出しは不要です。\n\n'
+            'プロフィール文の本文だけ出力してください。説明や見出しは不要です。'
+            + exclusion + '\n\n'
             '【実例集】\n' + sample_block
         )
     else:
