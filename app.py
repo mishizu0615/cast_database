@@ -382,11 +382,16 @@ extracted_fieldsは含まれていない項目は空文字列またはnullにし
         messages=[{'role': 'user', 'content': text}],
     )
     try:
-        return json.loads(res.content[0].text)
+        raw = res.content[0].text
+        # ```json ... ``` を除去
+        clean = raw.strip()
+        if clean.startswith('```'):
+            clean = clean.split('\n', 1)[-1]
+            clean = clean.rsplit('```', 1)[0]
+        return json.loads(clean.strip())
     except:
         logger.error(f'Intent parse error: {res.content[0].text}')
         return {'action': 'unknown'}
-
 # ========================================
 # LINE 返信
 # ========================================
