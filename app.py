@@ -23,7 +23,7 @@ CLAUDE_API_KEY  = os.environ['CLAUDE_API_KEY']
 SPREADSHEET_ID  = os.environ['SPREADSHEET_ID']
 CREDENTIALS_JSON = os.environ['GOOGLE_CREDENTIALS_JSON']  # サービスアカウントのJSONを文字列で
 
-CLAUDE_MODEL = 'claude-sonnet-4-6'
+CLAUDE_MODEL = 'claude-sonnet-4-20250514'
 
 SCHEMA = [
     'staff_id', 'service', 'status', 'created_at', 'updated_at',
@@ -323,7 +323,7 @@ def generate_profile_text(fields):
 
     res = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=1024,
+        max_tokens=2048,
         system=system,
         messages=[{'role': 'user', 'content': user_msg}],
     )
@@ -382,16 +382,11 @@ extracted_fieldsは含まれていない項目は空文字列またはnullにし
         messages=[{'role': 'user', 'content': text}],
     )
     try:
-        raw = res.content[0].text
-        # ```json ... ``` を除去
-        clean = raw.strip()
-        if clean.startswith('```'):
-            clean = clean.split('\n', 1)[-1]
-            clean = clean.rsplit('```', 1)[0]
-        return json.loads(clean.strip())
+        return json.loads(res.content[0].text)
     except:
         logger.error(f'Intent parse error: {res.content[0].text}')
         return {'action': 'unknown'}
+
 # ========================================
 # LINE 返信
 # ========================================
