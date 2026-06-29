@@ -23,7 +23,7 @@ CLAUDE_API_KEY  = os.environ['CLAUDE_API_KEY']
 SPREADSHEET_ID  = os.environ['SPREADSHEET_ID']
 CREDENTIALS_JSON = os.environ['GOOGLE_CREDENTIALS_JSON']  # サービスアカウントのJSONを文字列で
 
-CLAUDE_MODEL = 'claude-haiku-4-5'
+CLAUDE_MODEL = 'claude-sonnet-4-6'
 
 SCHEMA = [
     'staff_id', 'service', 'status', 'created_at', 'updated_at',
