@@ -23,7 +23,7 @@ CLAUDE_API_KEY  = os.environ['CLAUDE_API_KEY']
 SPREADSHEET_ID  = os.environ['SPREADSHEET_ID']
 CREDENTIALS_JSON = os.environ['GOOGLE_CREDENTIALS_JSON']  # サービスアカウントのJSONを文字列で
 
-CLAUDE_MODEL = 'claude-sonnet-4-6'
+CLAUDE_MODEL = 'claude-sonnet-4-20250514'
 
 SCHEMA = [
     'staff_id', 'service', 'status', 'created_at', 'updated_at',
@@ -214,10 +214,15 @@ def collect_samples(exclude_name='', staff_tags=None):
     tagged   = dedupe_shuffle(tagged)
     untagged = dedupe_shuffle(untagged)
 
-    # タグ一致を最大10件優先、残り10件を全体から補完
-    combined = tagged[:10] + untagged[:max(0, 20 - len(tagged[:10]))]
-    logger.info(f'サンプル収集: タグ一致={len(tagged)}件 補完={len(untagged)}件 使用={len(combined)}件 タグ={staff_tags}')
-    return combined[:20]
+    # タグ一致の採用数を毎回ランダムに変動（6〜12件）→ 組み合わせが固定化しない
+    tag_n     = random.randint(6, 12)
+    total_n   = random.randint(12, 20)   # 総数もゆらす
+    use_tag   = tagged[:tag_n]
+    use_extra = untagged[:max(0, total_n - len(use_tag))]
+    combined  = use_tag + use_extra
+    random.shuffle(combined)  # 順番もシャッフルして冒頭固定を防ぐ
+    logger.info(f'サンプル収集: タグ一致={len(tagged)}→採用{len(use_tag)} 補完={len(use_extra)} 総数={len(combined)} タグ={staff_tags}')
+    return combined
 
 LOCAL_HOMETOWNS = ['広島', '福山']
 
@@ -288,12 +293,25 @@ def generate_profile_text(fields):
                 + '、'.join(absent_attrs)
             )
 
+        # 構成パターンをランダムに1つ選ぶ（マンネリ防止）
+        style_variations = [
+            '導入で読み手にいきなり語りかける形で始めてください。',
+            'ギャップや意外性を軸に構成してください。',
+            'ストーリー仕立て（普段の姿→本当の姿）で展開してください。',
+            'テンポよく短文を畳みかけるリズムで書いてください。',
+            '問いかけを多めに使って読み手を引き込んでください。',
+            '一つの印象的なキャッチフレーズを軸に展開してください。',
+        ]
+        chosen_style = random.choice(style_variations)
+
         system = (
             'あなたはプロフィール文の生成AIです。\n'
             '以下の【実例集】だけを手がかりに、同じ世界観・トーン・リズム・語彙感覚で'
             '新しいプロフィール文を1つ書いてください。\n'
             'ルールや制約は一切ありません。\n'
             '実例の空気感を最大限に吸収して、自然に書いてください。\n'
+            '毎回同じ構成にならないよう、今回はこの方向性で書いてください：' + chosen_style + '\n'
+            'ただし実例の世界観・語彙感は必ず保ってください。\n'
             'プロフィール文の本文だけ出力してください。説明や見出しは不要です。'
             + exclusion + '\n\n'
             '【実例集】\n' + sample_block
@@ -324,6 +342,7 @@ def generate_profile_text(fields):
     res = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=2048,
+        temperature=1.0,
         system=system,
         messages=[{'role': 'user', 'content': user_msg}],
     )
